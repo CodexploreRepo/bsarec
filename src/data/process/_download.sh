@@ -32,9 +32,9 @@ elif [ "$DATASET_NAME" = "LastFM" ]; then
     rm LastFM.zip
 
 elif [ "$DATASET_NAME" = "ML-1M" ]; then
-    wget https://files.grouplens.org/datasets/movielens/ml-1m.zip -O ./raw_data/ML-1M.zip
-    unzip ./raw_data/ML-1M.zip
-    rm ./raw_data/ML-1M.zip
+    wget https://files.grouplens.org/datasets/movielens/ml-1m.zip -O ./ML-1M.zip
+    unzip ./ML-1M.zip
+    rm ./ML-1M.zip
 
 else   
     echo "Invalid dataset name"

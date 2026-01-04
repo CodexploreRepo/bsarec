@@ -25,6 +25,13 @@ In our experiments, we utilize six datasets, all stored in the `src/data` folder
 - For ML-1M and LastFM, we processed the data according to the procedure outlined in [this code](https://github.com/RUCAIBox/CIKM2020-S3Rec/blob/master/data/data_process.py).
 - The `src/data/*_same_target.npy` files are utilized for training DuoRec and FEARec, both of which incorporate contrastive learning.
 
+```shell
+=====ML-1M=====
+Total User: 6040, Avg User: 165.50, Min Len: 18, Max Len: 2277
+Total Item: 3416, Avg Item: 292.63, Min Inter: 5, Max Inter: 3428
+Iteraction Num: 999611, Avg Sequence Length: 165.5, Sparsity: 95.16%
+```
+
 ## Quick Start
 
 ### Environment Setting

@@ -1,8 +1,10 @@
+import copy
+
 import torch
 import torch.nn as nn
-import copy
+
 from model._abstract_model import SequentialRecModel
-from model._modules import TransformerEncoder, LayerNorm
+from model._modules import LayerNorm, TransformerEncoder
 
 """
 [Paper]
@@ -14,6 +16,7 @@ Conference: ICDM 2018
 https://github.com/kang205/SASRec
 https://github.com/Woeee/FMLP-Rec
 """
+
 
 class SASRecModel(SequentialRecModel):
     def __init__(self, args):
@@ -28,10 +31,11 @@ class SASRecModel(SequentialRecModel):
     def forward(self, input_ids, user_ids=None, all_sequence_output=False):
         extended_attention_mask = self.get_attention_mask(input_ids)
         sequence_emb = self.add_position_embedding(input_ids)
-        item_encoded_layers = self.item_encoder(sequence_emb,
-                                                extended_attention_mask,
-                                                output_all_encoded_layers=True,
-                                                )
+        item_encoded_layers = self.item_encoder(
+            sequence_emb,
+            extended_attention_mask,
+            output_all_encoded_layers=True,
+        )
         if all_sequence_output:
             sequence_output = item_encoded_layers
         else:
@@ -39,7 +43,9 @@ class SASRecModel(SequentialRecModel):
 
         return sequence_output
 
-    def calculate_loss(self, input_ids, answers, neg_answers, same_target, user_ids):
+    def calculate_loss(
+        self, input_ids, answers, neg_answers, same_target, user_ids
+    ):
 
         seq_out = self.forward(input_ids)
         seq_out = seq_out[:, -1, :]
@@ -50,11 +56,13 @@ class SASRecModel(SequentialRecModel):
         neg_emb = self.item_embeddings(neg_ids)
 
         # [batch hidden_size]
-        seq_emb = seq_out # [batch*seq_len hidden_size]
-        pos_logits = torch.sum(pos_emb * seq_emb, -1) # [batch*seq_len]
+        seq_emb = seq_out  # [batch*seq_len hidden_size]
+        pos_logits = torch.sum(pos_emb * seq_emb, -1)  # [batch*seq_len]
         neg_logits = torch.sum(neg_emb * seq_emb, -1)
 
-        pos_labels, neg_labels = torch.ones(pos_logits.shape, device=seq_out.device), torch.zeros(neg_logits.shape, device=seq_out.device)
+        pos_labels, neg_labels = torch.ones(
+            pos_logits.shape, device=seq_out.device
+        ), torch.zeros(neg_logits.shape, device=seq_out.device)
         indices = (pos_ids != 0).nonzero().reshape(-1)
         bce_criterion = torch.nn.BCEWithLogitsLoss()
         loss = bce_criterion(pos_logits[indices], pos_labels[indices])
