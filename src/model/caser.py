@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+
 from model._abstract_model import SequentialRecModel
 
 """
@@ -14,12 +15,15 @@ https://github.com/graytowne/caser_pytorch
 https://github.com/RUCAIBox/RecBole
 """
 
+
 class CaserModel(SequentialRecModel):
     def __init__(self, args):
         super(CaserModel, self).__init__(args)
 
         self.args = args
-        self.user_embeddings = nn.Embedding(args.num_users, args.hidden_size, padding_idx=0)
+        self.user_embeddings = nn.Embedding(
+            args.num_users, args.hidden_size, padding_idx=0
+        )
 
         # load parameters info
         self.embedding_size = args.hidden_size
@@ -33,7 +37,11 @@ class CaserModel(SequentialRecModel):
         self.n_users = args.num_users
 
         # vertical conv layer
-        self.conv_v = nn.Conv2d(in_channels=1, out_channels=self.n_v, kernel_size=(self.max_seq_length, 1))
+        self.conv_v = nn.Conv2d(
+            in_channels=1,
+            out_channels=self.n_v,
+            kernel_size=(self.max_seq_length, 1),
+        )
 
         # horizontal conv layer
         lengths = [i + 1 for i in range(self.max_seq_length)]
@@ -82,7 +90,6 @@ class CaserModel(SequentialRecModel):
                 loss_conv_h = loss_conv_h + parm.norm(2)
         return self.reg_weight * loss_conv_h
 
-
     def forward(self, input_ids, user_ids, all_sequence_output=False):
         # Embedding Look-up
         # use unsqueeze() to get a 4-D input for convolution layers. (batch_size * 1 * max_length * embedding_size)
@@ -117,8 +124,9 @@ class CaserModel(SequentialRecModel):
         # the hidden_state of the predicted item, size:(batch_size * hidden_size)
         return seq_output.unsqueeze(1)
 
-
-    def calculate_loss(self, input_ids, answers, neg_answers, same_target, user_ids):
+    def calculate_loss(
+        self, input_ids, answers, neg_answers, same_target, user_ids
+    ):
 
         seq_out = self.forward(input_ids, user_ids)
         seq_out = seq_out[:, -1, :]
@@ -129,11 +137,13 @@ class CaserModel(SequentialRecModel):
         neg_emb = self.item_embeddings(neg_ids)
 
         # [batch hidden_size]
-        seq_emb = seq_out # [batch*seq_len hidden_size]
-        pos_logits = torch.sum(pos_emb * seq_emb, -1) # [batch*seq_len]
+        seq_emb = seq_out  # [batch*seq_len hidden_size]
+        pos_logits = torch.sum(pos_emb * seq_emb, -1)  # [batch*seq_len]
         neg_logits = torch.sum(neg_emb * seq_emb, -1)
 
-        pos_labels, neg_labels = torch.ones(pos_logits.shape, device=seq_out.device), torch.zeros(neg_logits.shape, device=seq_out.device)
+        pos_labels, neg_labels = torch.ones(
+            pos_logits.shape, device=seq_out.device
+        ), torch.zeros(neg_logits.shape, device=seq_out.device)
         indices = (pos_ids != 0).nonzero().reshape(-1)
         bce_criterion = torch.nn.BCEWithLogitsLoss()
         loss = bce_criterion(pos_logits[indices], pos_labels[indices])
@@ -151,4 +161,3 @@ class CaserModel(SequentialRecModel):
         loss = loss + self.reg_weight * reg_loss + self.reg_loss_conv_h()
 
         return loss
-

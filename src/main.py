@@ -1,54 +1,87 @@
 import os
-import torch
-import numpy as np
 
+import numpy as np
+import torch
+import torch.multiprocessing
+
+# Fix "Too many open files" error on macOS
+torch.multiprocessing.set_sharing_strategy('file_system')
+
+from dataset import get_dataloder, get_rating_matrix, get_seq_dic
 from model import MODEL_DICT
 from trainers import Trainer
-from utils import EarlyStopping, check_path, set_seed, parse_args, set_logger
-from dataset import get_seq_dic, get_dataloder, get_rating_matrix
+from utils import EarlyStopping, check_path, parse_args, set_logger, set_seed
+
 
 def main():
 
     args = parse_args()
-    log_path = os.path.join(args.output_dir, args.train_name + '.log')
+    log_path = os.path.join(args.output_dir, args.train_name + ".log")
     logger = set_logger(log_path)
 
     set_seed(args.seed)
     check_path(args.output_dir)
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_id
-    args.cuda_condition = torch.cuda.is_available() and not args.no_cuda
+    # Device selection: CUDA > MPS > CPU
+    if torch.cuda.is_available() and not args.no_cuda:
+        os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_id
+        args.device = "cuda"
+    elif torch.backends.mps.is_available() and not args.no_cuda:
+        args.device = "mps"
+    else:
+        args.device = "cpu"
+
+    logger.info(f"Using device: {args.device}")
 
     seq_dic, max_item, num_users = get_seq_dic(args)
     args.item_size = max_item + 1
     args.num_users = num_users + 1
 
-    args.checkpoint_path = os.path.join(args.output_dir, args.train_name + '.pt')
-    args.same_target_path = os.path.join(args.data_dir, args.data_name+'_same_target.npy')
-    train_dataloader, eval_dataloader, test_dataloader = get_dataloder(args,seq_dic)
+    args.checkpoint_path = os.path.join(
+        args.output_dir, args.train_name + ".pt"
+    )
+    args.same_target_path = os.path.join(
+        args.data_dir, args.data_name + "_same_target.npy"
+    )
+    train_dataloader, eval_dataloader, test_dataloader = get_dataloder(
+        args, seq_dic
+    )
 
     logger.info(str(args))
     model = MODEL_DICT[args.model_type.lower()](args=args)
     logger.info(model)
-    trainer = Trainer(model, train_dataloader, eval_dataloader, test_dataloader, args, logger)
+    trainer = Trainer(
+        model, train_dataloader, eval_dataloader, test_dataloader, args, logger
+    )
 
-    args.valid_rating_matrix, args.test_rating_matrix = get_rating_matrix(args.data_name, seq_dic, max_item)
+    args.valid_rating_matrix, args.test_rating_matrix = get_rating_matrix(
+        args.data_name, seq_dic, max_item
+    )
 
     if args.do_eval:
         if args.load_model is None:
             logger.info(f"No model input!")
             exit(0)
         else:
-            args.checkpoint_path = os.path.join(args.output_dir, args.load_model + '.pt')
+            args.checkpoint_path = os.path.join(
+                args.output_dir, args.load_model + ".pt"
+            )
             trainer.load(args.checkpoint_path)
 
             logger.info(f"Load model from {args.checkpoint_path} for test!")
             scores, result_info = trainer.test(0)
-            args.checkpoint_path = os.path.join(args.output_dir, args.train_name + '.pt')
+            args.checkpoint_path = os.path.join(
+                args.output_dir, args.train_name + ".pt"
+            )
             # torch.save(trainer.model.state_dict(), args.checkpoint_path)
 
     else:
-        early_stopping = EarlyStopping(args.checkpoint_path, logger=logger, patience=args.patience, verbose=True)
+        early_stopping = EarlyStopping(
+            args.checkpoint_path,
+            logger=logger,
+            patience=args.patience,
+            verbose=True,
+        )
         for epoch in range(args.epochs):
 
             trainer.train(epoch)
@@ -67,4 +100,5 @@ def main():
     logger.info(result_info)
 
 
-main()
+if __name__ == "__main__":
+    main()
